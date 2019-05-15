@@ -20,7 +20,7 @@ func main() {
 	if err := doc.ReadFromFile("drawing2.svg"); err != nil {
 		panic(err)
 	}
-	config := svgmanip.Configs{[]svgmanip.Config{{ID: "path10", Fill: "#00ff00"}}}
+	config := svgmanip.Config{[]svgmanip.Target{{SvgId: "path10", Fill: "#00ff00"}}}
 	svgmanip.UpdateDoc(doc, config)
 	doc.WriteToFile("new.svg")
 	ping()

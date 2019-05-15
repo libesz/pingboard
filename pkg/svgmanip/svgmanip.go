@@ -7,18 +7,20 @@ import (
 	"github.com/beevik/etree"
 )
 
+type Target struct {
+	SvgId    string `yaml:"id"`
+	Fill     string `yaml:"fill"`
+	Method   string `yaml:"method,omitempty"`
+	EndPoint string `yaml:"endpoint,omitempty"`
+}
+
 type Config struct {
-	ID   string `yaml:"id"`
-	Fill string `yaml:"fill"`
+	Targets []Target `yaml:"targets"`
 }
 
-type Configs struct {
-	Cfgs []Config `yaml:"changemap"`
-}
-
-func CheckAndChange(elem *etree.Element, configs Configs) {
-	for _, v := range configs.Cfgs {
-		if elem.SelectAttr("id").Value == v.ID {
+func CheckAndChange(elem *etree.Element, config Config) {
+	for _, v := range config.Targets {
+		if elem.SelectAttr("id").Value == v.SvgId {
 			var re = regexp.MustCompile(`fill:#[0-9a-zA-Z]{6}`)
 			elem.SelectAttr("style").Value = re.ReplaceAllString(elem.SelectAttr("style").Value, `fill:`+v.Fill)
 			fmt.Printf("  ATTR: %s=%s\n", "style", elem.SelectAttr("style").Value)
@@ -26,16 +28,11 @@ func CheckAndChange(elem *etree.Element, configs Configs) {
 	}
 }
 
-func UpdateDoc(doc *etree.Document, config Configs) {
+func UpdateDoc(doc *etree.Document, config Config) {
 	root := doc.SelectElement("svg")
 	fmt.Println("ROOT element:", root.Tag)
 	for _, g := range root.SelectElements("g") {
-		//g.FindElements
 		fmt.Println(" CHILD element:", g.Tag)
-		/*if title := g.SelectElement("title"); title != nil {
-			lang := title.SelectAttrValue("lang", "unknown")
-			fmt.Printf("  TITLE: %s (%s)\n", title.Text(), lang)
-		}*/
 		for _, path := range g.SelectElements("path") {
 			fmt.Println(" CHILD element:", path.Tag)
 			CheckAndChange(path, config)

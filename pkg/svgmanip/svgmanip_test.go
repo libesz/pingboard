@@ -8,47 +8,27 @@ import (
 	"strings"
 )
 
-/*func TestHello(t *testing.T) {
-	var testXML = `
-	<?xml version="1.0" encoding="UTF-8" standalone="no"?>
-	<svg>
-	  <g>
-		<path style="fill:#000000" id="path10" />
-	  </g>
-	</svg>
-	`
-	doc := etree.NewDocument()
-	doc.ReadFromString(testXML)
-	path := doc.SelectElement("svg").SelectElement("g").SelectElement("path")
-
-	CheckAndChange(path)
-	if path.SelectAttr("style").Value != "fill:#00ff00" {
-        t.Errorf("Style mismatch")
-    }
-}*/
-
 func TestYaml(t *testing.T) {
 	var data = `
-changemap:
+targets:
 - id: path10
   fill: "#00ff00"
 `
 
-	configs := Configs{}
+	config := Config{}
     
-	err := yaml.Unmarshal([]byte(data), &configs)
+	err := yaml.Unmarshal([]byte(data), &config)
 	if err != nil {
 		t.Errorf("a")
 		log.Fatalf("error unmarshal: %v", err)
 	}
-	//t.Errorf("error %v", q)
-	if configs.Cfgs[0].Fill != "#00ff00" {
-		t.Errorf("error %v", configs)
+	if config.Targets[0].Fill != "#00ff00" {
+		t.Errorf("error %v", config)
 	}
 }
 
-func TestNewInterface(t *testing.T) {
-	config := Configs{[]Config{{ID:"path10", Fill:"#00ff00"}}}
+func TestSingleChange(t *testing.T) {
+	config := Config{[]Target{{SvgId:"path10", Fill:"#00ff00"}}}
 	var testXML = `
 	<?xml version="1.0" encoding="UTF-8" standalone="no"?>
 	<svg>
