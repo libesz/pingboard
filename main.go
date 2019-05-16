@@ -6,24 +6,38 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net"
 	"os"
 	"time"
 
 	"github.com/beevik/etree"
+	"github.com/libesz/pingboard/pkg/config"
 	"github.com/libesz/pingboard/pkg/svgmanip"
 	"github.com/tatsushid/go-fastping"
+	"gopkg.in/yaml.v2"
 )
 
 func main() {
-	doc := etree.NewDocument()
-	if err := doc.ReadFromFile("drawing2.svg"); err != nil {
+	filename := os.Args[1]
+	configSource, err := ioutil.ReadFile(filename)
+	if err != nil {
 		panic(err)
 	}
-	config := svgmanip.Config{[]svgmanip.Target{{SvgId: "path10", Fill: "#00ff00"}}}
-	svgmanip.UpdateDoc(doc, config)
-	doc.WriteToFile("new.svg")
-	ping()
+	config := config.Config{}
+
+	err = yaml.Unmarshal([]byte(configSource), &config)
+	if err != nil {
+		panic(err)
+	}
+
+	svg := etree.NewDocument()
+	if err := svg.ReadFromFile(config.SvgPath); err != nil {
+		panic(err)
+	}
+	svgmanip.UpdateDoc(svg, config)
+	svg.WriteToFile("new.svg")
+	//ping()
 }
 
 func ping() {
