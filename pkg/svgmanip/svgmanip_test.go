@@ -56,8 +56,32 @@ func TestSingleChange(t *testing.T) {
 	}
 }
 
+func TestSingleChangeErrors(t *testing.T) {
+	var testXML = `
+	<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+	<svg>
+	  <g>
+		<path id="path10" />
+	  </g>
+	</svg>
+	`
+	doc := etree.NewDocument()
+	doc.ReadFromString(testXML)
+	root := doc.SelectElement("svg")
+
+	err := CheckAndChange(root, config.Target{SvgId: "path10", Fill: "#00ff00"})
+	if err == nil {
+		t.Errorf("Style should be missing")
+	}
+	err = CheckAndChange(root, config.Target{SvgId: "path11", Fill: "#00ff00"})
+	if err == nil {
+		t.Errorf("Style should be missing")
+	}
+}
+
 func TestDocUpdate(t *testing.T) {
-	config := config.Config{Targets: []config.Target{{SvgId: "path10", Fill: "#00ff00"}}}
+	config := config.Config{
+		Targets: []config.Target{{SvgId: "path10", Fill: "#00ff00"}}}
 	var testXML = `
 	<?xml version="1.0" encoding="UTF-8" standalone="no"?>
 	<svg>

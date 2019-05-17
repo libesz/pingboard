@@ -35,7 +35,9 @@ func main() {
 	if err := svg.ReadFromFile(config.SvgPath); err != nil {
 		panic(err)
 	}
-	svgmanip.UpdateDoc(svg, config)
+	if err = svgmanip.UpdateDoc(svg, config); err != nil {
+		panic(err)
+	}
 	svg.WriteToFile("new.svg")
 	//ping()
 }
