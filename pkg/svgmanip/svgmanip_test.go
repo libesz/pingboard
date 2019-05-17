@@ -33,6 +33,11 @@ targets:
 	}
 }
 
+var goodConfig = config.Config{
+	Targets: []config.Target{{SvgId: "path10", Fill: "#00ff00"}}}
+var badConfig = config.Config{
+	Targets: []config.Target{{SvgId: "path11", Fill: "#00ff00"}}}
+
 func TestSingleChange(t *testing.T) {
 	var testXML = `
 	<?xml version="1.0" encoding="UTF-8" standalone="no"?>
@@ -46,7 +51,7 @@ func TestSingleChange(t *testing.T) {
 	doc.ReadFromString(testXML)
 	root := doc.SelectElement("svg")
 
-	CheckAndChange(root, config.Target{SvgId: "path10", Fill: "#00ff00"})
+	CheckAndChange(root, goodConfig.Targets[0])
 	path := doc.SelectElement("svg").SelectElement("g").SelectElement("path")
 	if !strings.Contains(path.SelectAttr("style").Value, "fill:#00ff00") {
 		t.Errorf("Style mismatch %v", path.SelectAttr("style").Value)
@@ -56,7 +61,7 @@ func TestSingleChange(t *testing.T) {
 	}
 }
 
-func TestSingleChangeErrors(t *testing.T) {
+func TestChangeErrors(t *testing.T) {
 	var testXML = `
 	<?xml version="1.0" encoding="UTF-8" standalone="no"?>
 	<svg>
@@ -69,19 +74,17 @@ func TestSingleChangeErrors(t *testing.T) {
 	doc.ReadFromString(testXML)
 	root := doc.SelectElement("svg")
 
-	err := CheckAndChange(root, config.Target{SvgId: "path10", Fill: "#00ff00"})
+	err := CheckAndChange(root, goodConfig.Targets[0])
 	if err == nil {
 		t.Errorf("Style should be missing")
 	}
-	err = CheckAndChange(root, config.Target{SvgId: "path11", Fill: "#00ff00"})
+	err = CheckAndChange(root, badConfig.Targets[0])
 	if err == nil {
-		t.Errorf("Style should be missing")
+		t.Errorf("Path should be missing")
 	}
 }
 
 func TestDocUpdate(t *testing.T) {
-	config := config.Config{
-		Targets: []config.Target{{SvgId: "path10", Fill: "#00ff00"}}}
 	var testXML = `
 	<?xml version="1.0" encoding="UTF-8" standalone="no"?>
 	<svg>
@@ -92,13 +95,40 @@ func TestDocUpdate(t *testing.T) {
 	`
 	doc := etree.NewDocument()
 	doc.ReadFromString(testXML)
-	UpdateDoc(doc, config)
-
+	err := UpdateDoc(doc, goodConfig)
+	if err != nil {
+		t.Errorf("UpdateDoc should pass here")
+	}
 	path := doc.SelectElement("svg").SelectElement("g").SelectElement("g").SelectElement("path")
 	if !strings.Contains(path.SelectAttr("style").Value, "fill:#00ff00") {
 		t.Errorf("Style mismatch %v", path.SelectAttr("style").Value)
 	}
 	if !strings.Contains(path.SelectAttr("style").Value, "bla=bla") {
 		t.Errorf("Style mismatch2 %v", path.SelectAttr("style").Value)
+	}
+	err = UpdateDoc(doc, badConfig)
+	if err == nil {
+		t.Errorf("UpdateDoc should fail here")
+	}
+}
+
+func TestDocCheck(t *testing.T) {
+	var testXML = `
+	<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+	<svg>
+	  <g><g>
+		<path style="fill:#000000, bla=bla" id="path10" />
+	  </g></g>
+	</svg>
+	`
+	doc := etree.NewDocument()
+	doc.ReadFromString(testXML)
+	err := CheckDoc(doc, badConfig)
+	if err == nil {
+		t.Errorf("CheckDoc should fail")
+	}
+	err = CheckDoc(doc, goodConfig)
+	if err != nil {
+		t.Errorf("CheckDoc should pass")
 	}
 }
