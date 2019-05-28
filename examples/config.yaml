@@ -1,0 +1,4 @@
+svgpath: "drawing2.svg"
+targets:
+- id: path10
+  fill: "#00ff00"
