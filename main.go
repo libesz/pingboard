@@ -1,13 +1,11 @@
-// Example SVG parser using a combination of xml.Unmarshal and the
-// xml.Unmarshaler interface to handle an unknown combination of group
-// elements where order is important.
-
 package main
 
 import (
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net"
+	"net/http"
 	"os"
 	"time"
 
@@ -17,6 +15,8 @@ import (
 	"github.com/tatsushid/go-fastping"
 	"gopkg.in/yaml.v2"
 )
+
+var requestChan chan chan *etree.Document
 
 func main() {
 	filename := os.Args[1]
@@ -38,8 +38,52 @@ func main() {
 	if err = svgmanip.CheckDoc(svg, config); err != nil {
 		panic(err)
 	}
-	svg.WriteToFile("new.svg")
+	requestChan = make(chan chan *etree.Document)
+	go updater(requestChan, svg)
+	http.Handle("/", http.HandlerFunc(handleSvg))
+	err = http.ListenAndServe(":2003", nil)
+	if err != nil {
+		log.Fatal("ListenAndServe:", err)
+	} //updatee(requestChan)
+
+	//svg.WriteToFile("new.svg")
 	//ping()
+}
+
+func handleSvg(w http.ResponseWriter, req *http.Request) {
+	fmt.Println("Got request")
+	svg := updatee(requestChan)
+	if svg == nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("500 - Something bad happened!"))
+		fmt.Println("500")
+	}
+	w.Header().Set("Content-Type", "image/svg+xml")
+	svg.WriteTo(w)
+	fmt.Println("Sent response")
+	return
+}
+
+func updater(requestChan <-chan chan *etree.Document, svg *etree.Document) {
+	for {
+		updateChan := <-requestChan
+		fmt.Println("sent data:", svg)
+		updateChan <- svg
+	}
+}
+
+func updatee(requestChan chan<- chan *etree.Document) *etree.Document {
+	updateChan := make(chan *etree.Document)
+	requestChan <- updateChan
+	timeout := time.After(3 * time.Second)
+	select {
+	case <-timeout:
+		fmt.Println("timeout")
+	case svg := <-updateChan:
+		fmt.Println("rec data:", svg)
+		return svg
+	}
+	return nil
 }
 
 func ping() {
