@@ -1,22 +1,20 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"log"
-	"net"
 	"net/http"
 	"os"
 	"time"
 
 	"github.com/beevik/etree"
 	"github.com/libesz/pingboard/pkg/config"
+	"github.com/libesz/pingboard/pkg/scheduler"
 	"github.com/libesz/pingboard/pkg/svgmanip"
-	"github.com/tatsushid/go-fastping"
 	"gopkg.in/yaml.v2"
 )
-
-var requestChan chan chan *etree.Document
 
 func main() {
 	filename := os.Args[1]
@@ -38,25 +36,27 @@ func main() {
 	if err = svgmanip.CheckDoc(svg, config); err != nil {
 		panic(err)
 	}
-	requestChan = make(chan chan *etree.Document)
-	go updater(requestChan, svg)
-	http.Handle("/", http.HandlerFunc(handleSvg))
+	resultChan := make(chan scheduler.ResultChange)
+	go scheduler.Run(context.Background(), config.Targets, resultChan)
+	requestChan := make(chan chan *etree.Document)
+	go updater(requestChan, resultChan, svg, config.Targets)
+	http.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		handleSvg(requestChan, w, req)
+	}))
 	err = http.ListenAndServe(":2003", nil)
 	if err != nil {
 		log.Fatal("ListenAndServe:", err)
-	} //updatee(requestChan)
-
-	//svg.WriteToFile("new.svg")
-	//ping()
+	}
 }
 
-func handleSvg(w http.ResponseWriter, req *http.Request) {
+func handleSvg(requestChan chan chan *etree.Document, w http.ResponseWriter, req *http.Request) {
 	fmt.Println("Got request")
 	svg := updatee(requestChan)
 	if svg == nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("500 - Something bad happened!"))
 		fmt.Println("500")
+		return
 	}
 	w.Header().Set("Content-Type", "image/svg+xml")
 	svg.WriteTo(w)
@@ -64,18 +64,40 @@ func handleSvg(w http.ResponseWriter, req *http.Request) {
 	return
 }
 
-func updater(requestChan <-chan chan *etree.Document, svg *etree.Document) {
+func updater(requestChan <-chan chan *etree.Document, resultChan chan scheduler.ResultChange, origSvg *etree.Document, allUpdateRules []config.Target) {
+	var actualUpdateRules []config.Target
+	svg := origSvg.Copy()
 	for {
-		updateChan := <-requestChan
-		fmt.Println("sent data:", svg)
-		updateChan <- svg
+		select {
+		case result := <-resultChan:
+			if result.Value {
+				for i, v := range allUpdateRules {
+					if v.SvgID == result.ID {
+						actualUpdateRules = append(actualUpdateRules, allUpdateRules[i])
+					}
+				}
+			} else {
+				for i, v := range actualUpdateRules {
+					if v.SvgID == result.ID {
+						actualUpdateRules = append(actualUpdateRules[:i], actualUpdateRules[i+1:]...)
+					}
+				}
+			}
+			svg = origSvg.Copy()
+			if err := svgmanip.UpdateDoc(svg, actualUpdateRules); err != nil {
+				fmt.Println("Error during update: ", err)
+			}
+		case clientSvgChan := <-requestChan:
+			fmt.Println("sent data:", svg)
+			clientSvgChan <- svg
+		}
 	}
 }
 
 func updatee(requestChan chan<- chan *etree.Document) *etree.Document {
 	updateChan := make(chan *etree.Document)
 	requestChan <- updateChan
-	timeout := time.After(3 * time.Second)
+	timeout := time.After(5 * time.Second)
 	select {
 	case <-timeout:
 		fmt.Println("timeout")
@@ -84,27 +106,4 @@ func updatee(requestChan chan<- chan *etree.Document) *etree.Document {
 		return svg
 	}
 	return nil
-}
-
-func ping() {
-	//pinger.SetPrivileged(true)
-	p := fastping.NewPinger()
-	ra, err := net.ResolveIPAddr("ip4:icmp", os.Args[1])
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	p.AddIPAddr(ra)
-	p.OnRecv = func(addr *net.IPAddr, rtt time.Duration) {
-		fmt.Printf("IP Addr: %s receive, RTT: %v\n", addr.String(), rtt)
-	}
-	p.OnIdle = func() {
-		fmt.Println("finish")
-	}
-	p.MaxRTT = time.Millisecond * 1000
-	err = p.Run()
-	if err != nil {
-		fmt.Println(err)
-	}
-	//time.Sleep(10 * time.Second)
 }

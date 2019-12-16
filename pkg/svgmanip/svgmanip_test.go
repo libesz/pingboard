@@ -34,11 +34,11 @@ targets:
 }
 
 var goodConfig = config.Config{
-	Targets: []config.Target{{SvgId: "path10", Fill: "#00ff00"}}}
+	Targets: []config.Target{{SvgID: "path10", Fill: "#00ff00"}}}
 var badConfig = config.Config{
-	Targets: []config.Target{{SvgId: "path11", Fill: "#00ff00"}}}
+	Targets: []config.Target{{SvgID: "path11", Fill: "#00ff00"}}}
 
-func TestSingleChange(t *testing.T) {
+func TestSingleChangeEmbedded(t *testing.T) {
 	var testXML = `
 	<?xml version="1.0" encoding="UTF-8" standalone="no"?>
 	<svg>
@@ -61,6 +61,26 @@ func TestSingleChange(t *testing.T) {
 	}
 }
 
+func TestSingleChange(t *testing.T) {
+	var testXML = `
+	<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+	<svg>
+	  <g>
+		<path fill="#000000" id="path10" />
+	  </g>
+	</svg>
+	`
+	doc := etree.NewDocument()
+	doc.ReadFromString(testXML)
+	root := doc.SelectElement("svg")
+
+	CheckAndChange(root, goodConfig.Targets[0])
+	path := doc.SelectElement("svg").SelectElement("g").SelectElement("path")
+	if !strings.Contains(path.SelectAttr("fill").Value, "#00ff00") {
+		t.Errorf("Fill mismatch %v", path.SelectAttr("fill").Value)
+	}
+}
+
 func TestChangeErrors(t *testing.T) {
 	var testXML = `
 	<?xml version="1.0" encoding="UTF-8" standalone="no"?>
@@ -75,8 +95,8 @@ func TestChangeErrors(t *testing.T) {
 	root := doc.SelectElement("svg")
 
 	err := CheckAndChange(root, goodConfig.Targets[0])
-	if err == nil {
-		t.Errorf("Style should be missing")
+	if err != nil {
+		t.Errorf("Style should be added if missing")
 	}
 	err = CheckAndChange(root, badConfig.Targets[0])
 	if err == nil {
@@ -84,7 +104,7 @@ func TestChangeErrors(t *testing.T) {
 	}
 }
 
-func TestDocUpdate(t *testing.T) {
+func TestDocUpdateEmbedded(t *testing.T) {
 	var testXML = `
 	<?xml version="1.0" encoding="UTF-8" standalone="no"?>
 	<svg>
@@ -95,7 +115,7 @@ func TestDocUpdate(t *testing.T) {
 	`
 	doc := etree.NewDocument()
 	doc.ReadFromString(testXML)
-	err := UpdateDoc(doc, goodConfig)
+	err := UpdateDoc(doc, goodConfig.Targets)
 	if err != nil {
 		t.Errorf("UpdateDoc should pass here")
 	}
@@ -106,7 +126,7 @@ func TestDocUpdate(t *testing.T) {
 	if !strings.Contains(path.SelectAttr("style").Value, "bla=bla") {
 		t.Errorf("Style mismatch2 %v", path.SelectAttr("style").Value)
 	}
-	err = UpdateDoc(doc, badConfig)
+	err = UpdateDoc(doc, badConfig.Targets)
 	if err == nil {
 		t.Errorf("UpdateDoc should fail here")
 	}
@@ -125,7 +145,7 @@ func TestDocCheck(t *testing.T) {
 	doc.ReadFromString(testXML)
 	err := CheckDoc(doc, badConfig)
 	if err == nil {
-		t.Errorf("CheckDoc should fail")
+		t.Errorf("CheckDoc should fail due to missing path")
 	}
 	err = CheckDoc(doc, goodConfig)
 	if err != nil {

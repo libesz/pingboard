@@ -2,3 +2,5 @@ svgpath: "drawing2.svg"
 targets:
 - id: path10
   fill: "#00ff00"
+  method: "ping"
+  endpoint: "example.com"
