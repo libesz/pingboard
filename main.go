@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -13,24 +12,16 @@ import (
 	"github.com/libesz/pingboard/pkg/config"
 	"github.com/libesz/pingboard/pkg/scheduler"
 	"github.com/libesz/pingboard/pkg/svgmanip"
-	"gopkg.in/yaml.v2"
 )
 
 func main() {
-	filename := os.Args[1]
-	configSource, err := ioutil.ReadFile(filename)
-	if err != nil {
-		panic(err)
-	}
-	config := config.Config{}
-
-	err = yaml.Unmarshal([]byte(configSource), &config)
+	config, err := config.Get(os.Args[1])
 	if err != nil {
 		panic(err)
 	}
 
 	svg := etree.NewDocument()
-	if err := svg.ReadFromFile(config.SvgPath); err != nil {
+	if err = svg.ReadFromFile(config.SvgPath); err != nil {
 		panic(err)
 	}
 	if err = svgmanip.CheckDoc(svg, config); err != nil {
