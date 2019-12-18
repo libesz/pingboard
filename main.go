@@ -5,6 +5,9 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"sync"
+	"syscall"
 
 	"github.com/beevik/etree"
 	"github.com/libesz/pingboard/pkg/config"
@@ -13,7 +16,18 @@ import (
 	"github.com/libesz/pingboard/pkg/svgupdater"
 )
 
+func signalHandler(cancel context.CancelFunc, sigs chan os.Signal) {
+	sig := <-sigs
+	log.Println("[main] Signal received: " + sig.String())
+	cancel()
+}
+
 func main() {
+	ctx, cancel := context.WithCancel(context.Background())
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	go signalHandler(cancel, sigs)
+
 	configData, err := config.Get(os.Args[1])
 	if err != nil {
 		panic(err)
@@ -26,31 +40,49 @@ func main() {
 		panic(err)
 	}
 
-	resultChan := make(chan scheduler.ResultChange)
-	go scheduler.Run(context.Background(), configData.Targets, resultChan)
-	requestChan := make(chan chan *etree.Document)
-	go svgupdater.Run(requestChan, resultChan, svg, configData.Targets)
-	http.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		handleSvg(requestChan, w, req)
-	}))
+	var wg sync.WaitGroup
 
-	err = http.ListenAndServe(":2003", nil)
-	if err != nil {
-		log.Fatal("ListenAndServe:", err)
-	}
+	resultChan := make(chan scheduler.ResultChange)
+	wg.Add(1)
+	go func() {
+		scheduler.Run(ctx, configData.Targets, resultChan)
+		wg.Done()
+	}()
+
+	requestChan := make(chan chan *etree.Document)
+	wg.Add(1)
+	go func() {
+		svgupdater.Run(ctx, requestChan, resultChan, svg, configData.Targets)
+		wg.Done()
+	}()
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) { handleSvg(requestChan, w, req) })
+	server := &http.Server{Addr: ":2003", Handler: handler}
+	wg.Add(1)
+	go func() {
+		if err := server.ListenAndServe(); err != nil {
+			log.Println("[main] ListenAndServe: " + err.Error())
+		}
+		wg.Done()
+	}()
+	<-ctx.Done()
+	log.Println("[main] Exiting, waiting everybody to return...")
+	server.Close()
+	wg.Wait()
+	log.Println("[main] Exiting, done")
 }
 
 func handleSvg(requestChan chan chan *etree.Document, w http.ResponseWriter, req *http.Request) {
-	log.Println("Got request from client: " + req.RemoteAddr)
+	log.Println("[main] Got request from client: " + req.RemoteAddr)
 	svg, err := svgupdater.Get(requestChan)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("500 - Something bad happened!"))
-		log.Println("Error 500 happened with error: " + err.Error())
+		log.Println("[main] Error 500 happened with error: " + err.Error())
 		return
 	}
 	w.Header().Set("Content-Type", "image/svg+xml")
 	svg.WriteTo(w)
-	log.Println("Sent response to client: " + req.RemoteAddr)
+	log.Println("[main] Sent response to client: " + req.RemoteAddr)
 	return
 }

@@ -1,6 +1,7 @@
 package svgupdater
 
 import (
+	"context"
 	"errors"
 	"log"
 	"time"
@@ -11,7 +12,8 @@ import (
 	"github.com/libesz/pingboard/pkg/svgmanip"
 )
 
-func Run(requestChan <-chan chan *etree.Document, resultChan chan scheduler.ResultChange, origSvg *etree.Document, allUpdateRules []config.Target) {
+func Run(ctx context.Context, requestChan <-chan chan *etree.Document, resultChan chan scheduler.ResultChange, origSvg *etree.Document, allUpdateRules []config.Target) {
+	log.Println("[svgupdater] Started up")
 	var actualUpdateRules []config.Target
 	svg := origSvg.Copy()
 	for {
@@ -37,6 +39,9 @@ func Run(requestChan <-chan chan *etree.Document, resultChan chan scheduler.Resu
 		case clientSvgChan := <-requestChan:
 			//fmt.Println("sent data:", svg)
 			clientSvgChan <- svg
+		case <-ctx.Done():
+			log.Println("[svgupdater] Exiting")
+			return
 		}
 	}
 }
@@ -52,5 +57,5 @@ func Get(requestChan chan<- chan *etree.Document) (*etree.Document, error) {
 		//fmt.Println("rec data:", svg)
 		return svg, nil
 	}
-	return nil, errors.New("Timeout happened when tried to gather SVG content")
+	return nil, errors.New("[svgupdater] Timeout happened when tried to gather SVG content from updater")
 }
