@@ -5,7 +5,7 @@ type Handler string
 
 // Target is a single configured entity which is monitored
 type Target struct {
-	SvgID    string  `yaml:"id"`
+	ID       string  `yaml:"id"`
 	Fill     string  `yaml:"fill"`
 	Handler  Handler `yaml:"method,omitempty"`
 	EndPoint string  `yaml:"endpoint,omitempty"`

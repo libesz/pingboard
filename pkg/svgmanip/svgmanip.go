@@ -10,9 +10,9 @@ import (
 )
 
 func findByID(root *etree.Element, target config.Target) (*etree.Element, error) {
-	elem := root.FindElement(".//*[@id='" + target.SvgID + "']")
+	elem := root.FindElement(".//*[@id='" + target.ID + "']")
 	if elem == nil {
-		return nil, errors.New("[svgmanip] Could not find object with ID: " + target.SvgID)
+		return nil, errors.New("[svgmanip] Could not find object with ID: " + target.ID)
 	}
 	return elem, nil
 }
@@ -26,12 +26,12 @@ func findAndGetStyleAttr(root *etree.Element, target config.Target) (*etree.Attr
 	if style != nil {
 		return style, true, nil
 	}
-	log.Println("[svgmanip] Style does not exists for ID: " + string(target.SvgID) + ". Falling back to search fill property.")
+	log.Println("[svgmanip] Style does not exists for ID: " + string(target.ID) + ". Falling back to search fill property.")
 	style = elem.SelectAttr("fill")
 	if style != nil {
 		return style, false, nil
 	}
-	log.Println("[svgmanip] Fill does not exists for ID: " + string(target.SvgID) + ". Creating new attribute.")
+	log.Println("[svgmanip] Fill does not exists for ID: " + string(target.ID) + ". Creating new attribute.")
 	style = elem.CreateAttr("fill", "none")
 	return style, false, nil
 }
@@ -43,7 +43,7 @@ func change(style *etree.Attr, embedded bool, target config.Target) {
 	} else {
 		style.Value = target.Fill
 	}
-	log.Printf("[svgmanip] SVG ID: %s, updated fill property: %s\n", target.SvgID, target.Fill)
+	log.Printf("[svgmanip] SVG ID: %s, updated fill property: %s\n", target.ID, target.Fill)
 }
 
 func CheckAndChange(root *etree.Element, config config.Target) error {

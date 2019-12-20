@@ -21,13 +21,13 @@ func Run(ctx context.Context, requestChan <-chan chan *etree.Document, resultCha
 		case result := <-resultChan:
 			if result.Value {
 				for i, v := range allUpdateRules {
-					if v.SvgID == result.ID {
+					if v.ID == result.ID {
 						actualUpdateRules = append(actualUpdateRules, allUpdateRules[i])
 					}
 				}
 			} else {
 				for i, v := range actualUpdateRules {
-					if v.SvgID == result.ID {
+					if v.ID == result.ID {
 						actualUpdateRules = append(actualUpdateRules[:i], actualUpdateRules[i+1:]...)
 					}
 				}

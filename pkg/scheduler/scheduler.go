@@ -26,7 +26,7 @@ func Run(ctx context.Context, targets []config.Target, resultChange chan ResultC
 	scheduledHandlers := []scheduledHandler{}
 	for _, target := range targets {
 		log.Printf("[scheduler] Initialized scheduledHandler: %+v\n", target)
-		scheduledHandlers = append(scheduledHandlers, scheduledHandler{ID: target.SvgID, handler: handlers.NewHandler(target.Handler, target.EndPoint)})
+		scheduledHandlers = append(scheduledHandlers, scheduledHandler{ID: target.ID, handler: handlers.NewHandler(target.Handler, target.EndPoint)})
 	}
 	var wg sync.WaitGroup
 	for _, handler := range scheduledHandlers {
