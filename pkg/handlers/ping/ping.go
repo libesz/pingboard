@@ -3,8 +3,8 @@ package ping
 import (
 	"context"
 	"fmt"
+	"log"
 	"net"
-	"os"
 	"time"
 
 	"github.com/tatsushid/go-fastping"
@@ -21,8 +21,8 @@ func (pingConfig *PingConfig) Run(ctx context.Context) bool {
 	p.Network("udp")
 	ra, err := net.ResolveIPAddr("ip4:icmp", pingConfig.Target)
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		log.Println("[ping] " + err.Error())
+		return false
 	}
 	p.AddIPAddr(ra)
 	p.OnRecv = func(addr *net.IPAddr, rtt time.Duration) {
