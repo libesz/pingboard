@@ -1,6 +1,7 @@
 package config
 
 import (
+	"io"
 	"io/ioutil"
 
 	"github.com/beevik/etree"
@@ -8,8 +9,8 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-func Get(filename string) (Config, error) {
-	configSource, err := ioutil.ReadFile(filename)
+func Get(reader io.Reader) (Config, error) {
+	configSource, err := ioutil.ReadAll(reader)
 	if err != nil {
 		return Config{}, err
 	}

@@ -7,7 +7,7 @@ type Handler string
 type Target struct {
 	ID       string  `yaml:"id"`
 	Fill     string  `yaml:"fill"`
-	Handler  Handler `yaml:"method,omitempty"`
+	Method   Handler `yaml:"method,omitempty"`
 	EndPoint string  `yaml:"endpoint,omitempty"`
 }
 

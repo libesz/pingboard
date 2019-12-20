@@ -27,12 +27,18 @@ func main() {
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	go signalHandler(cancel, sigs)
 
-	configData, err := config.Get(os.Args[1])
+	configSource, err := os.Open(os.Args[1])
 	if err != nil {
 		panic(err)
 	}
+
+	configData, err := config.Get(configSource)
+	if err != nil {
+		panic(err)
+	}
+
 	svg := etree.NewDocument()
-	if err = svg.ReadFromFile(configData.SvgPath); err != nil {
+	if err := svg.ReadFromFile(configData.SvgPath); err != nil {
 		panic(err)
 	}
 
