@@ -6,10 +6,9 @@ import (
 	"regexp"
 
 	"github.com/beevik/etree"
-	"github.com/libesz/pingboard/pkg/config"
 )
 
-func findByID(root *etree.Element, target config.Target) (*etree.Element, error) {
+func findByID(root *etree.Element, target Target) (*etree.Element, error) {
 	elem := root.FindElement(".//*[@id='" + target.ID + "']")
 	if elem == nil {
 		return nil, errors.New("[svgmanip] Could not find object with ID: " + target.ID)
@@ -17,11 +16,7 @@ func findByID(root *etree.Element, target config.Target) (*etree.Element, error)
 	return elem, nil
 }
 
-func findAndGetStyleAttr(root *etree.Element, target config.Target) (*etree.Attr, bool, error) {
-	elem, err := findByID(root, target)
-	if err != nil {
-		return nil, false, err
-	}
+func getStyleAttr(elem *etree.Element, target Target) (*etree.Attr, bool, error) {
 	style := elem.SelectAttr("style")
 	if style != nil {
 		return style, true, nil
@@ -36,7 +31,17 @@ func findAndGetStyleAttr(root *etree.Element, target config.Target) (*etree.Attr
 	return style, false, nil
 }
 
-func change(style *etree.Attr, embedded bool, target config.Target) {
+func getTitleElem(elem *etree.Element, target Target) (*etree.Element, error) {
+	title := elem.SelectElement("title")
+	if title != nil {
+		return title, nil
+	}
+	log.Println("[svgmanip] Title does not exists for ID: " + string(target.ID) + ". Creating new element.")
+	title = elem.CreateElement("title")
+	return title, nil
+}
+
+func changeFill(style *etree.Attr, embedded bool, target Target) {
 	if embedded {
 		re := regexp.MustCompile(`fill:#[0-9a-zA-Z]{6}`)
 		style.Value = re.ReplaceAllString(style.Value, `fill:`+target.Fill)
@@ -46,16 +51,30 @@ func change(style *etree.Attr, embedded bool, target config.Target) {
 	log.Printf("[svgmanip] SVG ID: %s, updated fill property: %s\n", target.ID, target.Fill)
 }
 
-func CheckAndChange(root *etree.Element, config config.Target) error {
-	attr, embedded, err := findAndGetStyleAttr(root, config)
+func changeTitle(title *etree.Element, target Target) {
+	title.CreateText(target.LastChange)
+	log.Printf("[svgmanip] SVG ID: %s, updated title element: %s\n", target.ID, target.Fill)
+}
+
+func CheckAndChange(root *etree.Element, target Target) error {
+	elem, err := findByID(root, target)
 	if err != nil {
 		return err
 	}
-	change(attr, embedded, config)
+	fill, embedded, err := getStyleAttr(elem, target)
+	if err != nil {
+		return err
+	}
+	changeFill(fill, embedded, target)
+	title, err := getTitleElem(elem, target)
+	if err != nil {
+		return err
+	}
+	changeTitle(title, target)
 	return nil
 }
 
-func UpdateDoc(doc *etree.Document, targets []config.Target) error {
+func UpdateDoc(doc *etree.Document, targets []Target) error {
 	root := doc.SelectElement("svg")
 	//fmt.Println("ROOT element:", root.Tag)
 	for _, target := range targets {
@@ -66,10 +85,10 @@ func UpdateDoc(doc *etree.Document, targets []config.Target) error {
 	return nil
 }
 
-func CheckDoc(doc *etree.Document, config config.Config) error {
+func CheckDoc(doc *etree.Document, targets []Target) error {
 	root := doc.SelectElement("svg")
 	//fmt.Println("ROOT element:", root.Tag)
-	for _, target := range config.Targets {
+	for _, target := range targets {
 		if _, err := findByID(root, target); err != nil {
 			return err
 		}

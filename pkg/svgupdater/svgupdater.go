@@ -14,7 +14,7 @@ import (
 
 func Run(ctx context.Context, requestChan <-chan chan *etree.Document, resultChan chan scheduler.ResultChange, origSvg *etree.Document, allUpdateRules []config.Target) {
 	log.Println("[svgupdater] Started up")
-	var actualUpdateRules []config.Target
+	var actualUpdateRules []svgmanip.Target
 	svg := origSvg.Copy()
 	for {
 		select {
@@ -22,7 +22,7 @@ func Run(ctx context.Context, requestChan <-chan chan *etree.Document, resultCha
 			if result.Value {
 				for i, v := range allUpdateRules {
 					if v.ID == result.ID {
-						actualUpdateRules = append(actualUpdateRules, allUpdateRules[i])
+						actualUpdateRules = append(actualUpdateRules, svgmanip.Target{ID: result.ID, Fill: allUpdateRules[i].Fill, LastChange: "Last change at: " + time.Now().Format(time.RFC1123)})
 					}
 				}
 			} else {

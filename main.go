@@ -12,7 +12,6 @@ import (
 	"github.com/beevik/etree"
 	"github.com/libesz/pingboard/pkg/config"
 	"github.com/libesz/pingboard/pkg/scheduler"
-	"github.com/libesz/pingboard/pkg/svgmanip"
 	"github.com/libesz/pingboard/pkg/svgupdater"
 )
 
@@ -36,7 +35,8 @@ func main() {
 	if err = svg.ReadFromFile(configData.SvgPath); err != nil {
 		panic(err)
 	}
-	if err = svgmanip.CheckDoc(svg, configData); err != nil {
+
+	if err = config.Validate(configData, svg); err != nil {
 		panic(err)
 	}
 
@@ -57,9 +57,12 @@ func main() {
 	}()
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) { handleSvg(requestChan, w, req) })
-	server := &http.Server{Addr: ":2003", Handler: handler}
+	mux := http.NewServeMux()
+	mux.Handle("/", handler)
+	server := &http.Server{Addr: ":2003", Handler: mux}
 	wg.Add(1)
 	go func() {
+		log.Println("[main] HTTP server is listening on :2003")
 		if err := server.ListenAndServe(); err != nil {
 			log.Println("[main] ListenAndServe: " + err.Error())
 		}

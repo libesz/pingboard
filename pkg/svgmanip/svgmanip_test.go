@@ -33,10 +33,8 @@ targets:
 	}
 }
 
-var goodConfig = config.Config{
-	Targets: []config.Target{{SvgID: "path10", Fill: "#00ff00"}}}
-var badConfig = config.Config{
-	Targets: []config.Target{{SvgID: "path11", Fill: "#00ff00"}}}
+var goodConfig = []Target{{ID: "path10", Fill: "#00ff00"}}
+var badConfig = []Target{{ID: "path11", Fill: "#00ff00"}}
 
 func TestSingleChangeEmbedded(t *testing.T) {
 	var testXML = `
@@ -51,7 +49,7 @@ func TestSingleChangeEmbedded(t *testing.T) {
 	doc.ReadFromString(testXML)
 	root := doc.SelectElement("svg")
 
-	CheckAndChange(root, goodConfig.Targets[0])
+	CheckAndChange(root, goodConfig[0])
 	path := doc.SelectElement("svg").SelectElement("g").SelectElement("path")
 	if !strings.Contains(path.SelectAttr("style").Value, "fill:#00ff00") {
 		t.Errorf("Style mismatch %v", path.SelectAttr("style").Value)
@@ -74,7 +72,7 @@ func TestSingleChange(t *testing.T) {
 	doc.ReadFromString(testXML)
 	root := doc.SelectElement("svg")
 
-	CheckAndChange(root, goodConfig.Targets[0])
+	CheckAndChange(root, goodConfig[0])
 	path := doc.SelectElement("svg").SelectElement("g").SelectElement("path")
 	if !strings.Contains(path.SelectAttr("fill").Value, "#00ff00") {
 		t.Errorf("Fill mismatch %v", path.SelectAttr("fill").Value)
@@ -94,11 +92,11 @@ func TestChangeErrors(t *testing.T) {
 	doc.ReadFromString(testXML)
 	root := doc.SelectElement("svg")
 
-	err := CheckAndChange(root, goodConfig.Targets[0])
+	err := CheckAndChange(root, goodConfig[0])
 	if err != nil {
 		t.Errorf("Style should be added if missing")
 	}
-	err = CheckAndChange(root, badConfig.Targets[0])
+	err = CheckAndChange(root, badConfig[0])
 	if err == nil {
 		t.Errorf("Path should be missing")
 	}
@@ -115,7 +113,7 @@ func TestDocUpdateEmbedded(t *testing.T) {
 	`
 	doc := etree.NewDocument()
 	doc.ReadFromString(testXML)
-	err := UpdateDoc(doc, goodConfig.Targets)
+	err := UpdateDoc(doc, goodConfig)
 	if err != nil {
 		t.Errorf("UpdateDoc should pass here")
 	}
@@ -126,7 +124,7 @@ func TestDocUpdateEmbedded(t *testing.T) {
 	if !strings.Contains(path.SelectAttr("style").Value, "bla=bla") {
 		t.Errorf("Style mismatch2 %v", path.SelectAttr("style").Value)
 	}
-	err = UpdateDoc(doc, badConfig.Targets)
+	err = UpdateDoc(doc, badConfig)
 	if err == nil {
 		t.Errorf("UpdateDoc should fail here")
 	}
