@@ -1,13 +1,17 @@
+//go:generate go run generate_static.go
 package main
 
 import (
 	"context"
+	"encoding/base64"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
+
+	"golang.org/x/net/websocket"
 
 	"github.com/beevik/etree"
 	"github.com/libesz/pingboard/pkg/config"
@@ -55,16 +59,21 @@ func main() {
 		wg.Done()
 	}()
 
-	requestChan := make(chan chan *etree.Document)
+	updater := svgupdater.New(resultChan, svg, configData.Targets)
 	wg.Add(1)
 	go func() {
-		svgupdater.Run(ctx, requestChan, resultChan, svg, configData.Targets)
+		updater.Run(ctx)
 		wg.Done()
 	}()
 
-	handler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) { handleSvg(requestChan, w, req) })
+	//svgHandler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {handleSvg(requestChan, w, req) })
+	svgHandler := websocket.Handler(func(ws *websocket.Conn) {
+		handleSvg(ctx, &updater, ws)
+	})
 	mux := http.NewServeMux()
-	mux.Handle("/", handler)
+	mux.Handle("/svg", svgHandler)
+	mux.Handle("/", http.FileServer(static))
+
 	server := &http.Server{Addr: ":2003", Handler: mux}
 	wg.Add(1)
 	go func() {
@@ -81,17 +90,42 @@ func main() {
 	log.Println("[main] Exiting, done")
 }
 
-func handleSvg(requestChan chan chan *etree.Document, w http.ResponseWriter, req *http.Request) {
-	log.Println("[main] Got request from client: " + req.RemoteAddr)
-	svg, err := svgupdater.Get(requestChan)
+func handleSvg(ctx context.Context, updater *svgupdater.SvgUpdater, ws *websocket.Conn) {
+	log.Println("[main] Got connection from client: " + ws.RemoteAddr().String())
+	clientClosed := make(chan struct{})
+	go func() {
+		var data []byte
+		websocket.Message.Receive(ws, data)
+		close(clientClosed)
+	}()
+
+	svgChan := updater.Register()
+	svg, err := updater.Get()
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("500 - Something bad happened!"))
-		log.Println("[main] Error 500 happened with error: " + err.Error())
-		return
+		log.Println("[main] SVG updater error: " + err.Error())
 	}
-	w.Header().Set("Content-Type", "image/svg+xml")
-	svg.WriteTo(w)
-	log.Println("[main] Sent response to client: " + req.RemoteAddr)
-	return
+	pushSvgToWs(svg, ws)
+	for {
+		select {
+		case svg := <-svgChan:
+			pushSvgToWs(svg, ws)
+		case <-ctx.Done():
+			log.Println("[main] WebSocket handler returns")
+			return
+		case <-clientClosed:
+			log.Println("[main] Client disconnected:", ws.RemoteAddr().String())
+			updater.DeRegister(svgChan)
+			return
+		}
+	}
+}
+
+func pushSvgToWs(svg *etree.Document, ws *websocket.Conn) {
+	str, err := svg.WriteToBytes()
+	if err != nil {
+		log.Println("[main] SVG error: " + err.Error())
+	}
+	str2 := base64.StdEncoding.EncodeToString(str)
+	websocket.Message.Send(ws, []byte(str2))
+	log.Println("[main] Update sent to client:", ws.RemoteAddr().String())
 }

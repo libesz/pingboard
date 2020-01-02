@@ -1,0 +1,74 @@
+﻿<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html>
+    <head>
+        <title>PingBoard</title>
+        <script type="text/javascript">
+            var noSupportMessage = "Your browser cannot support WebSocket!";
+            var ws;
+
+            function appendMessage(message) {
+                document.getElementById("log").append(message+"\n");
+            }
+
+            function connectSocketServer() {
+                var support = "MozWebSocket" in window ? 'MozWebSocket' : ("WebSocket" in window ? 'WebSocket' : null);
+
+                if (support == null) {
+                    appendMessage(noSupportMessage + "\n");
+                    return;
+                }
+
+                appendMessage("Connecting");
+                ws = new window[support]('ws://localhost:2003/svg');
+                ws.binaryType = "arraybuffer";
+
+                ws.onmessage = function (evt) {
+                    if (evt.data) {
+                        appendMessage('Updated');
+                        drawImage(evt.data);
+                    }
+                };
+
+                ws.onopen = function () {
+                    appendMessage('Connected');
+                    document.getElementById("connectButton").disabled = true
+                    document.getElementById("disconnectButton").disabled = false
+                };
+
+                ws.onclose = function () {
+                    appendMessage('Disconnected');
+                    document.getElementById("connectButton").disabled = false
+                    document.getElementById("disconnectButton").disabled = true
+                }
+            }
+
+            function disconnectWebSocket() {
+                if (ws) {
+                    ws.close();
+                }
+            }
+
+            function connectWebSocket() {
+                document.getElementById("connectButton").disabled = true
+                connectSocketServer();
+            }
+
+            window.onload = function () {
+                connectWebSocket()
+            }
+
+            function drawImage(data) {
+                var byteArray = new Uint8Array(data);
+                var div = document.getElementById('img');
+                var enc = new TextDecoder("utf-8");
+                div.innerHTML = atob(enc.decode(data))
+            }
+    </script>
+    </head>
+    <body>
+        <input type="button" id="connectButton" value="Connect" onclick="connectWebSocket()"/> 
+        <input type="button" id="disconnectButton" value="Disconnect" onclick="disconnectWebSocket()"/>
+        <div id="img"></div>
+        <pre id="log"></pre>
+    </body>
+</html>
